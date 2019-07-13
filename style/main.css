@@ -1,0 +1,8 @@
+@font-face {
+    font-family: 'Bit Potion';
+    src: url("./fonts/BitPotionExt.ttf");
+}
+
+#target {
+    border: 1px solid black;
+}
