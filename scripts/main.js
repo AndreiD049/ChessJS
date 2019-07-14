@@ -5,7 +5,7 @@ var Game = {
     it controls the loading of all assets */
     _edge_size: 64,
     _context: null,
-    _playing_whites: true,
+    _playing_whites: false,
 
     get edge_size() {
         return Game._edge_size;
@@ -62,7 +62,8 @@ var Game = {
         this.ctx = canvas.getContext("2d");
         this.board = Object.create(Board);
         this.initSprites();
-        this.board.initBoard('rgba(0, 0, 0, .5)', 'rgb(250, 255, 148)');
+        this.board.initBoard('rgba(0, 0, 0, .8)', 'rgb(255, 255, 255)');
+        this.ctx.canvas.addEventListener("click", this.MouseClickHandler.bind(this));
         this.mainloop();
     },
 
@@ -80,13 +81,6 @@ var Game = {
                             6, 
                             100, 
                             96);
-        
-        this.Sprites["Fire"] = Object.create(Sprite)
-                .initSprite(this.loadedImages["./sprites/brightfire.png"], 
-                            8, 
-                            8, 
-                            100, 
-                            100);
     },
 
     // using function declaration for self-reference
@@ -97,6 +91,36 @@ var Game = {
 
     clearCanvas: function() {
         this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+    },
+
+    MouseClickHandler: function(e) {
+        let ex = e.offsetX;
+        let ey = e.offsetY;
+        let b = this.board;
+        let es = this.edge_size;
+        
+
+        if (ex > b.x && ex < (b.x + es * 8) && ey > b.y && ey < (b.y + es * 8)) {
+            let row = this.playing_whites ? 7 - Math.floor((ey - b.y) / es) : Math.floor((ey - b.y) / es);
+            let col = this.playing_whites ? Math.floor((ex - b.x) / es) : 7 - Math.floor((ex - b.x) / es);
+            
+            let cell = b.cells[col][row];
+            console.log(b.selected_cell);
+            if (cell.piece || b.selected_cell) {
+                if (!b.selected_cell) {
+                    b.select_cell(cell);
+                    return;
+                } else {
+                    // we have a selected cell
+                    // if it's not the same cell, move the piece
+                    // if move is validated, do move
+                    if (b.selected_cell !== cell) {
+                        b.selected_cell.moveTo(cell, b);
+                    }
+                }
+            }
+        }
+        b.unselect();
     },
 
     run: function() {
@@ -137,9 +161,9 @@ Board.initBoard = function(dark_colour, light_colour) {
     let min_canvas_size = Math.min(this.ctx.canvas.width, this.ctx.canvas.height)
     // Check if the set edge_size will fit current canvas dimensions
     // if not, return the max possible size
-    this.edge_size = this.edge_size < Math.floor(min_canvas_size / 8) ? 
+    this.edge_size = this.edge_size < Math.floor(min_canvas_size / 10) ? 
                         this.edge_size :
-                        Math.floor(min_canvas_size / 8) - 2;
+                        Math.floor(min_canvas_size / 10) - 2;
     let max_board_size = this.edge_size * 8
     let x = Math.floor(this.ctx.canvas.width / 2) - Math.floor(max_board_size / 2);
     let y = Math.floor(this.ctx.canvas.height / 2) - Math.floor(max_board_size / 2);
@@ -148,6 +172,7 @@ Board.initBoard = function(dark_colour, light_colour) {
     this.position.initPosition(x, y);
 
     this.animations = [];
+    this.selected_cell = null;
 
     // creates a 2d array (8 rows by 8 columns)
     this.cells = Array(8).
@@ -169,28 +194,52 @@ Board.initBoard = function(dark_colour, light_colour) {
             let address = this.playing_whites ? 
                           `${String.fromCharCode(c_idx+65)}${8-r_idx}` :
                           `${String.fromCharCode(72-c_idx)}${r_idx+1}`;
-            let piece = Object.create(Pawn);
-            cell.initCell(x + this.edge_size * c_idx, y, current_color, piece, address);
-            piece.initPawn(cell, this.Sprites["Pieces"]);
-            this.cells[r_idx][c_idx] = cell;
+            
+            cell.initCell(x + this.edge_size * c_idx, y, current_color, null, address);
+            
+            // assign the cell to the correct array item
+            if (this.playing_whites) {
+                this.cells[c_idx][7-r_idx] = cell;
+            } else {
+                this.cells[7-c_idx][r_idx] = cell;
+            }
+
             current_color = this.nextColour(current_color);
         }, this);
         y += this.edge_size;
     }, this);
 
-    this.initCoords("64px Bit Potion", "bottom");
+    let piece = Object.create(Pawn);
+    piece.initPiece(this.cells[0][0], this.Sprites["Pieces"]);
 
-    this.ctx.canvas.addEventListener("click", this.clickExplosion.bind(this));
+    let knight = Object.create(Knight);
+    knight.initPiece(this.cells[1][0], this.Sprites["Pieces"]);
+
+    let bishop = Object.create(Bishop);
+    bishop.initPiece(this.cells[2][0], this.Sprites["Pieces"]);
+
+    let rook = Object.create(Rook);
+    rook.initPiece(this.cells[3][0], this.Sprites["Pieces"]);
+
+    let queen = Object.create(Queen);
+    queen.initPiece(this.cells[4][0], this.Sprites["Pieces"]);
+
+    let king = Object.create(King);
+    king.initPiece(this.cells[5][0], this.Sprites["Pieces"]);
+
+    this.initCoords(this.edge_size + "px Bit Potion", "bottom");
 };
 
 Board.renderBoard = function() {
     // check if current edge size will fit into the canvas
     this.clearCanvas();
 
+    this.draw_coords();
+
     this.cells.map(function(row) {
         row.map(function(cell, c_idx) {
             this.ctx.fillStyle = cell.colour;
-            
+
             this.ctx.strokeRect(
                 cell.x,
                 cell.y,
@@ -204,13 +253,39 @@ Board.renderBoard = function() {
                 this.edge_size, 
                 this.edge_size
             );
+
+            // if (cell.piece) {
+            //     cell.piece.render();
+            // }
             
         }, this);
-        this.cells[7][7].piece.render();
     }, this);
-    this.draw_coords();
+
+    // if (this.selected_cell) {
+    //     this.ctx.save();
+    //     this.ctx.fillStyle = "red";
+    //     this.ctx.fillRect(
+    //         this.selected_cell.x,
+    //         this.selected_cell.y,
+    //         this.edge_size,
+    //         this.edge_size
+    //     )
+    //     if (this.selected_cell.piece) {
+    //         this.selected_cell.piece.render();
+    //     }
+    //     this.ctx.restore();
+    // }
+
     this.playAnimations();
+    this.renderPieces();
 };
+
+Board.renderPieces = function() {
+    this.cells.forEach(
+        row => row.filter(
+            cell => cell.piece).forEach(
+                cell => cell.piece.render()))
+}
 
 Board.nextColour = function(colour) {
     return (colour == this.dark_colour) ? this.light_colour : this.dark_colour;
@@ -227,7 +302,6 @@ Board.initCoords = function(font, baseline) {
     this.ctx.font = font;
     this.ctx.textBaseline = baseline;
     let txt = this.ctx.measureText("A");
-    console.log(txt.width);
     this.ctx.restore();
 
     for (let i = 0; i < 8; i++) {
@@ -262,24 +336,32 @@ Board.playAnimations = function() {
     this.animations.forEach(function(a, idx) {
         a.execute();
     });
+    // remove animations that are finished
     this.animations = this.animations.filter(function(a) {
         return !a.over;
     });
 }
 
-Board.clickExplosion = function(e) {
-    let anim = Object.create(Animation);
-    anim.initAnimation(this.ctx, 
-                       e.offsetX-50, 
-                       e.offsetY-50, 
-                       100, 100, 
-                       800, 
-                       this.Sprites["Explosion"],
-                       Animation.drawSprite);
-
-    this.animations.push(anim);
+Board.unselect = function() {
+    this.selected_cell = null;
 }
 
+Board.select_cell = function(cell) {
+    this.selected_cell = cell;
+    let animation = Object.create(ConditionalAnimation);
+    
+    let gradient = this.ctx.createLinearGradient(cell.x, cell.y, cell.x + this.edge_size, cell.y + this.edge_size);
+    gradient.addColorStop(0, "red");
+    gradient.addColorStop(0.8, "violet");
+    gradient.addColorStop(1, "white");
+
+    this.animations.push(animation
+            .initCondAnimation(this.ctx,
+                               700, 
+                               cell, 
+                               ConditionalAnimation.selected_pulse.bind(animation, gradient), 
+                               function(){return this.selected_cell}.bind(this)));
+}
 
 /* Cell represents each individual cell on the board
 specifying it's position, colour, address & the figure object if any.
@@ -292,6 +374,21 @@ Cell.initCell = function(x, y, colour, piece, address) {
     this.colour = colour;
     this.piece = piece;
     this.address = address;
+}
+
+Cell.getColRow = function() {
+    let col = this.address[0].charCodeAt() - 65;
+    let row = this.address[1].charCodeAt() - 49;
+    return [col, row];
+}
+
+Cell.moveTo = function(another, board) {
+    let c1r1 = this.getColRow();
+    let c2r2 = another.getColRow();
+    let temp = board.cells[c1r1[0]][c1r1[1]].piece;
+    board.cells[c1r1[0]][c1r1[1]].piece = null;
+    temp.update(board.cells[c2r2[0]][c2r2[1]]);
+    board.unselect();
 }
 
 /* Coordinate implementation */
@@ -308,33 +405,74 @@ var Piece = Object.create(Cell);
 Piece.initPiece = function(parent, sprite) {
     this.parent = parent;
     this.sprite = sprite;
+    parent.piece = this;
+    this.width = this.parent.edge_size;
+    this.height = (this.parent.edge_size * this.sprite.frame_height) / this.sprite.frame_width;
+    this.position = Object.create(Position);
+    this.update_position();
+}
+
+Piece.update = function(newParrent) {
+    this.parent = newParrent;
+    this.parent.piece = this;
+    this.update_position();
+}
+
+Piece.update_position = function() {
+    this.position.initPosition(this.parent.x, this.parent.y - (this.parent.edge_size * 0.4));
 }
 
 var Pawn = Object.create(Piece);
 
-Pawn.initPawn = function(parent, sprite) {
-    
-    this.initPiece(parent, sprite);
-    this.width = this.parent.edge_size;
-    this.height = (this.parent.edge_size * this.sprite.frame_height) / this.sprite.frame_width;
-    this.position = Object.create(Position);
-
-    /* y position is aligned with the top of the cell + 10% down.  */
-    this.position.initPosition(this.parent.x, this.parent.y + (this.parent.edge_size * 0.1));
+Pawn.update_position = function() {
+    this.position.initPosition(this.parent.x, this.parent.y + (this.parent.edge_size * 0.05));
 }
 
 Pawn.render = function() {
     this.sprite.drawFrame(this.ctx, 0, this.x, this.y, this.width, this.height);
 }
 
+var Rook = Object.create(Piece);
+
+Rook.update_position = function() {
+    this.position.initPosition(this.parent.x, this.parent.y - (this.parent.edge_size * 0.2));
+}
+
+Rook.render = function() {
+    this.sprite.drawFrame(this.ctx, 3, this.x, this.y, this.width, this.height);
+}
+
+var Knight = Object.create(Piece);
+
+Knight.update_position = function() {
+    this.position.initPosition(this.parent.x, this.parent.y - (this.parent.edge_size * 0.25));
+}
+
+Knight.render = function() {
+    this.sprite.drawFrame(this.ctx, 1, this.x, this.y, this.width, this.height);
+}
+
+var Bishop = Object.create(Piece);
+
+Bishop.render = function() {
+    this.sprite.drawFrame(this.ctx, 2, this.x, this.y, this.width, this.height);
+}
+
+var Queen = Object.create(Piece);
+
+Queen.render = function() {
+    this.sprite.drawFrame(this.ctx, 4, this.x, this.y, this.width, this.height);
+}
+
+var King = Object.create(Piece);
+
+King.render = function() {
+    this.sprite.drawFrame(this.ctx, 5, this.x, this.y, this.width, this.height);
+}
 
 var Animation = {
-    initAnimation: function(ctx, x, y, w, h, length, element, action, repeat) {
+    initAnimation: function(ctx, length, element, action, repeat) {
         this.ctx = ctx;
-        this.x = x;
-        this.y = y;
-        this.width = w;
-        this.height = h;
         this.length = length;
         this.progress = 0;
         this.start_time = -1;
@@ -346,6 +484,8 @@ var Animation = {
         this.total_frames = this.element.rows * this.element.columns || 0;
         this.frame_length = this.total_frames === 0 ? 0 : this.length / this.total_frames;
         this.repeat = repeat || 0;
+
+        return this;
     },
 
     execute: function() {
@@ -368,11 +508,59 @@ var Animation = {
         }
     },
 
-    drawSprite: function() {
+    drawSprite: function(x, y, w, h) {
         this.current_frame = Math.ceil(this.progress / this.frame_length);
-        this.element.drawFrame(this.ctx, this.current_frame, this.x, this.y, this.width, this.height);
+        this.element.drawFrame(this.ctx, this.current_frame, x, y, w, h);
     }
 };
+
+/* Conditional animation will play until the condition specified is true */
+
+var ConditionalAnimation = Object.create(Animation);
+
+ConditionalAnimation.initCondAnimation = function(ctx, length, element, action, condition) {
+    this.initAnimation(ctx, length, element, action, 0);
+    this.condition = condition;
+    
+    return this;
+}
+
+ConditionalAnimation.execute = function() {
+    if (this.condition()) {
+        this.action();
+    } else {
+        this.over = true;
+    }
+}
+
+ConditionalAnimation.selected_pulse = function(colour) {
+    // pulse...
+    let timestamp = new Date();
+    if (this.start_time < 0) {
+        this.start_time = timestamp;
+    }
+
+    this.dirrection = this.dirrection || 1;
+    this.progress = timestamp - this.start_time;
+
+    if (this.progress > this.length) {
+        this.progress = 0;
+        this.start_time = timestamp;
+        this.dirrection *= -1;
+    }
+    
+    if (this.dirrection > 0) {
+        this.alpha = 0.1 + (this.progress / this.length) * 0.9;
+    } else {
+        this.alpha = 1 - (this.progress / this.length) * 0.9;
+    }
+
+    this.ctx.save();
+    this.ctx.fillStyle = colour;
+    this.ctx.globalAlpha = this.alpha;
+    this.ctx.fillRect(this.element.x, this.element.y, this.element.edge_size, this.element.edge_size);
+    this.ctx.restore();
+}
 
 var Sprite = {
     initSprite: function(img, rows, columns, frame_width, frame_height) {
@@ -388,7 +576,7 @@ var Sprite = {
     drawFrame: function(ctx, frame_idx, x, y, w, h) {
         ctx.drawImage(this.img, 
                       frame_idx % this.rows * this.frame_width,
-                      Math.floor(frame_idx / this.columns) * this.frame_height,
+                      Math.floor(frame_idx / this.rows) * this.frame_height,
                       this.frame_width,
                       this.frame_height,
                       x,
