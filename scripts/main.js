@@ -5,8 +5,44 @@ var Game = {
     it controls the loading of all assets */
     _edge_size: 64,
     _context: null,
-    _playing_whites: false,
+    _playing_whites: true,
+    _dark_colour: 'rgba(0, 0, 0, .8)',
+    _light_colour: 'rgb(255, 255, 255)',
+    _board: undefined,
+    _highlight_color: 'rgb(0, 238, 255)',
+    _hit_highlight_color: 'rgb(252, 63, 63)',
 
+
+    get highlight_color() {
+        return Game._highlight_color;
+    },
+    set highlight_color(val) {
+        Game._highlight_color = val
+    },
+    get hit_highlight_color() {
+        return Game._hit_highlight_color;
+    },
+    set hit_highlight_color(val) {
+        Game._hit_highlight_color = val
+    },
+    get board() {
+        return Game._board;
+    },
+    set board(val) {
+        Game._board = val
+    },
+    get dark_colour() {
+        return Game._dark_colour;
+    },
+    set dark_colour(val) {
+        Game._dark_colour = val
+    },
+    get light_colour() {
+        return Game._light_colour;
+    },
+    set light_colour(val) {
+        Game._light_colour = val
+    },
     get edge_size() {
         return Game._edge_size;
     },
@@ -60,8 +96,9 @@ var Game = {
         this.ctx = canvas.getContext("2d");
         this.scene = Object.create(Scene);
         this.scene.initScene(Object.create(Board));
+        this.board = this.scene.board;
         this.initSprites();
-        this.scene.board.initBoard('rgba(0, 0, 0, .8)', 'rgb(255, 255, 255)');
+        this.scene.board.initBoard();
         this.ctx.canvas.addEventListener("click", this.MouseClickHandler.bind(this));
         this.mainloop();
     },
@@ -97,7 +134,7 @@ var Game = {
             b.MouseClickHandler(e);
         } else {
             // clicked something else - TODO
-            console.log("Cliecked outside the board");
+            console.log("Clicked outside the board");
         }
     },
 
@@ -135,12 +172,12 @@ Object.defineProperties(Board, {
         set: function(val) {
             this.position.y = val;
         }
-    }
+    },
 })
 
 /* initialize the chessboard with the edge size and an empty 2d
 array 8x8 */
-Board.initBoard = function(dark_colour, light_colour) {
+Board.initBoard = function() {
 
     let min_canvas_size = Math.min(this.ctx.canvas.width, this.ctx.canvas.height)
     // Check if the set edge_size will fit current canvas dimensions
@@ -156,28 +193,24 @@ Board.initBoard = function(dark_colour, light_colour) {
     this.position.initPosition(x, y);
 
     this.animations = [];
-    this.selected_cell = null;
+    this.selected_piece = null;
 
     // creates a 2d array (8 rows by 8 columns)
-    this.cells = Array(8).
-                    fill(0).
-                    reduce(
-                        (acc, _) => {
-                            acc.push(Array(8).fill(null));
-                            return acc}, 
-                        []);
-    
-    this.dark_colour = dark_colour || "#000000";
-    this.light_colour = light_colour || "#ffffff";
+
+    this.cells = [Array.apply(null, {length: 8}),
+                  Array.apply(null, {length: 8}),
+                  Array.apply(null, {length: 8}),
+                  Array.apply(null, {length: 8}),
+                  Array.apply(null, {length: 8}),
+                  Array.apply(null, {length: 8}),
+                  Array.apply(null, {length: 8}),
+                  Array.apply(null, {length: 8}),]
 
     this.cells.map(function(row, r_idx) {
         // if row is even (incl. 0) start with dark colour
         var current_color = r_idx % 2 === 0 ? this.light_colour : this.dark_colour;
         row.map(function(_, c_idx) {
             let cell = Object.create(Cell);
-            // let address = this.playing_whites ? 
-            //               `${String.fromCharCode(c_idx+65)}${8-r_idx}` :
-            //               `${String.fromCharCode(72-c_idx)}${r_idx+1}`;
 
             let address = this.playing_whites ? [c_idx, 7-r_idx] : [7-c_idx, r_idx];
             
@@ -196,22 +229,22 @@ Board.initBoard = function(dark_colour, light_colour) {
     }, this);
 
     let piece = Object.create(Pawn);
-    piece.initPiece(this.cells[0][0], this.Sprites["Pieces"]);
+    piece.initPawn(this.cells[0][0], this.Sprites["Pieces"], this.light_colour);
 
     let knight = Object.create(Knight);
-    knight.initPiece(this.cells[1][0], this.Sprites["Pieces"]);
+    knight.initPiece(this.cells[1][1], this.Sprites["Pieces"], this.dark_colour);
 
     let bishop = Object.create(Bishop);
-    bishop.initPiece(this.cells[2][0], this.Sprites["Pieces"]);
+    bishop.initPiece(this.cells[2][0], this.Sprites["Pieces"], this.light_colour);
 
     let rook = Object.create(Rook);
-    rook.initPiece(this.cells[3][0], this.Sprites["Pieces"]);
+    rook.initRook(this.cells[3][0], this.Sprites["Pieces"], this.light_colour);
 
     let queen = Object.create(Queen);
-    queen.initPiece(this.cells[4][0], this.Sprites["Pieces"]);
+    queen.initPiece(this.cells[4][0], this.Sprites["Pieces"], this.light_colour);
 
     let king = Object.create(King);
-    king.initPiece(this.cells[5][0], this.Sprites["Pieces"]);
+    king.initPiece(this.cells[5][0], this.Sprites["Pieces"], this.light_colour);
 
     this.initCoords(this.edge_size + "px Bit Potion", "bottom");
 };
@@ -310,24 +343,22 @@ Board.playAnimations = function() {
 }
 
 Board.unselect = function() {
-    this.selected_cell = null;
+    if (this.selected_piece) {
+        this.selected_piece.valid_moves = {};
+        this.selected_piece = null;
+    }
 }
 
 Board.select_cell = function(cell) {
-    this.selected_cell = cell;
+    this.selected_piece = cell.piece;
     let animation = Object.create(ConditionalAnimation);
-    
-    let gradient = this.ctx.createLinearGradient(cell.x, cell.y, cell.x + this.edge_size, cell.y + this.edge_size);
-    gradient.addColorStop(0, "red");
-    gradient.addColorStop(0.8, "violet");
-    gradient.addColorStop(1, "white");
 
     this.animations.push(animation
             .initCondAnimation(this.ctx,
-                               700, 
+                               1000, 
                                cell, 
-                               ConditionalAnimation.selected_pulse.bind(animation, gradient), 
-                               function(){return this.selected_cell}.bind(this)));
+                               ConditionalAnimation.selected_pulse.bind(animation, this.highlight_color), 
+                               function(){return this.selected_piece}.bind(this)));
 }
 
 Board.MouseClickHandler = function(e) {
@@ -341,7 +372,7 @@ Board.MouseClickHandler = function(e) {
     let col = this.playing_whites ? Math.floor((ex - b.x) / es) : 7 - Math.floor((ex - b.x) / es);
     
     let cell = b.cells[col][row];
-    cell.MouseClickHandler(e, this);
+    cell.MouseClickHandler(e);
 }
 
 /* Cell represents each individual cell on the board
@@ -357,33 +388,18 @@ Cell.initCell = function(x, y, colour, piece, address) {
     this.address = address;
 }
 
-Cell.moveTo = function(another, board) {
-    let c1 = this.address[0];
-    let r1 = this.address[1];
-    let c2 = another.address[0];
-    let r2 = another.address[1];
+Cell.MouseClickHandler = function(e) {
 
-    let temp = board.cells[c1][r1].piece;
-    board.cells[c1][r1].piece = null;
-    temp.update(board.cells[c2][r2]);
-    board.unselect();
-}
-
-Cell.MouseClickHandler = function(e, board) {
-    if (this.piece || board.selected_cell) {
-        if (!board.selected_cell) {
-            board.select_cell(this);
-            return;
-        } else {
-            // we have a selected cell
-            // if it's not the same cell, move the piece
-            // if move is validated, do move
-            if (board.selected_cell !== this) {
-                board.selected_cell.moveTo(this, board);
-            }
+    if (this.piece) {
+        this.piece.MouseClickHandler(e);
+    } else if (this.board.selected_piece) {
+        // we clicked an empty cell and we have a selected piece
+        // check if the selected piece can be moved here
+        if (this.board.selected_piece.valid_moves[`${this.address[0]}${this.address[1]}`]) {
+            this.board.selected_piece.moveTo(this);
         }
+        this.board.unselect();
     }
-    board.unselect();
 }
 
 /* Coordinate implementation */
@@ -397,9 +413,14 @@ Position.initPosition = function(x, y) {
 
 var Piece = Object.create(Cell);
 
-Piece.initPiece = function(parent, sprite) {
+Piece.initPiece = function(parent, sprite, colour) {
     this.parent = parent;
     this.sprite = sprite;
+    this.piece_colour = colour;
+    this.valid_moves = {};
+    this.move_dirrections =  [[0, 0]];
+    this.hit_dirrections =  [[0, 0]];
+    this.max_move_distance = 1;
     parent.piece = this;
     this.width = this.parent.edge_size;
     this.height = (this.parent.edge_size * this.sprite.frame_height) / this.sprite.frame_width;
@@ -417,24 +438,166 @@ Piece.update_position = function() {
     this.position.initPosition(this.parent.x, this.parent.y - (this.parent.edge_size * 0.4));
 }
 
+
+Piece.MouseClickHandler = function(e) {
+    // a cell was clicked that had contains a piece
+    if (!this.board.selected_piece) {
+        // there is no cell selected, yet
+        // select current cell
+        this.board.select_cell(this.parent);
+        //also we will add the valid moves to piece.valid_moves
+        this.add_valid_moves();
+        this.highlight_valid_moves();
+    } else {
+        // we have a selected cell
+        // check if the piece can has a different color
+        if (this.piece_colour !== this.board.selected_piece.piece_colour) {
+            // check if this move is valid
+            if (this.board.selected_piece.valid_moves[`${this.parent.address[0]}${this.parent.address[1]}`]) {
+                this.board.selected_piece.moveTo(this.parent);
+            }
+        }
+        this.board.unselect();
+    }
+}
+
+// TODO: optimize
+Piece.add_valid_moves = function() {
+    let moves = this.move_dirrections.slice();
+    let hits = this.hit_dirrections.slice();
+    let test = {};
+    for (let col = 1; col <= this.max_move_distance; col++) {
+        let row = col;
+        moves.forEach(function(dirrection, idx) {
+            // debugger;
+            let dir_col = this.parent.address[0] + col * dirrection[0];
+            let dir_row = this.parent.address[1] + row * dirrection[1];
+
+            test[`${col}${row}`] = test[`${col}${row}`] + 1 || 1;
+
+            if (this.isValidMove(dir_col, dir_row)) {
+                this.valid_moves[`${dir_col}${dir_row}`] = this.board.cells[dir_col][dir_row];
+            } else {
+                // remove the falsy move from the move array
+                moves[idx] = null;
+            };
+        }, this)
+        //remove false moves
+        moves = moves.filter(move => move);
+
+        hits.forEach(function(dirrection, idx) {
+            let dir_col = this.parent.address[0] + col * dirrection[0];
+            let dir_row = this.parent.address[1] + row * dirrection[1];
+            
+            if (this.isValidHit(dir_col, dir_row)) {
+                this.valid_moves[`${dir_col}${dir_row}`] = this.board.cells[dir_col][dir_row];
+                hits[idx] = null;
+            }
+        }, this);
+        // remove falsy hits
+        hits = hits.filter(hit => hit);
+    }
+    console.table(test, Object.keys(test).length);
+}
+
+
+Piece.isValidMove = function(target_col, target_row) {
+    if (target_col >= 0 && target_row >= 0 && target_col < 8 && target_row < 8) {
+        let cell = this.board.cells[target_col][target_row]
+        // if there is no piece in this cell it's a valid move
+        return !cell.piece;
+    } else {
+        // move would be outside the board - false
+        return false;
+    }
+}
+
+
+Piece.isValidHit = function(target_col, target_row) {
+    if (target_col >= 0 && target_row >= 0 && target_col < 8 && target_row < 8) {
+        let cell = this.board.cells[target_col][target_row]
+        // if there is a piece in this cell
+        return !!cell.piece && cell.piece.piece_colour !== this.piece_colour;
+    } else {
+        // move would be outside the board - false
+        return false;
+    } 
+}
+
+Piece.highlight_valid_moves = function() {
+    Object.keys(this.valid_moves).forEach(function(key) {
+        let cell = this.valid_moves[key];
+        let animation = Object.create(ConditionalAnimation);
+        this.board.animations.push(animation
+            .initCondAnimation(this.ctx,
+                               1000, 
+                               cell, 
+                               ConditionalAnimation.selected_pulse.bind(animation, cell.piece ? this.hit_highlight_color : this.highlight_color), 
+                               function(){return Object.keys(this.valid_moves).length > 0}.bind(this)));
+    }, this)
+}
+
+Piece.moveTo = function(cell) {
+    let c1 = this.parent.address[0];
+    let r1 = this.parent.address[1];
+    let c2 = cell.address[0];
+    let r2 = cell.address[1];
+
+    let temp = this;
+    this.board.cells[c1][r1].piece = null;
+    temp.update(this.board.cells[c2][r2]);
+    this.board.unselect();
+}
+
+
 var Pawn = Object.create(Piece);
+
+Pawn.initPawn = function(parent, sprite, colour) {
+    this.initPiece(parent, sprite, colour);
+
+    this.max_move_distance = 2;
+
+    if (this.playing_whites && (this.piece_colour === this.light_colour) ||
+        !this.playing_whites && (this.piece_colour === this.dark_colour)) {
+        this.move_dirrections =  [[0, 1]];
+        this.hit_dirrections = [[-1, 1], [1, 1]];
+    } else {
+        this.move_dirrections = [[0, -1]];
+        this.hit_dirrections = [[-1, -1], [1, -1]];
+    }
+}
+
+Pawn.moveTo = function(cell) {
+    if (this.max_move_distance == 2) {
+        this.max_move_distance = 1;
+    }
+    Piece.moveTo.call(this, cell);
+}
 
 Pawn.update_position = function() {
     this.position.initPosition(this.parent.x, this.parent.y + (this.parent.edge_size * 0.05));
 }
 
 Pawn.render = function() {
-    this.sprite.drawFrame(this.ctx, 0, this.x, this.y, this.width, this.height);
+    this.sprite.drawFrame(this.ctx, this.piece_colour === this.light_colour ? 0 : 6, this.x, this.y, this.width, this.height);
 }
 
 var Rook = Object.create(Piece);
+
+Rook.initRook = function(parent, sprite, colour) {
+    this.initPiece(parent, sprite, colour);
+
+    this.max_move_distance = 8;
+    this.move_dirrections =  [[0, 1], [0, -1], [-1, 0], [1, 0]];
+    this.hit_dirrections = this.move_dirrections;
+}
 
 Rook.update_position = function() {
     this.position.initPosition(this.parent.x, this.parent.y - (this.parent.edge_size * 0.2));
 }
 
 Rook.render = function() {
-    this.sprite.drawFrame(this.ctx, 3, this.x, this.y, this.width, this.height);
+    this.sprite.drawFrame(this.ctx, this.piece_colour === this.light_colour ? 3 : 9, this.x, this.y, this.width, this.height);
 }
 
 var Knight = Object.create(Piece);
@@ -444,25 +607,25 @@ Knight.update_position = function() {
 }
 
 Knight.render = function() {
-    this.sprite.drawFrame(this.ctx, 1, this.x, this.y, this.width, this.height);
+    this.sprite.drawFrame(this.ctx, this.piece_colour === this.light_colour ? 1 : 7, this.x, this.y, this.width, this.height);
 }
 
 var Bishop = Object.create(Piece);
 
 Bishop.render = function() {
-    this.sprite.drawFrame(this.ctx, 2, this.x, this.y, this.width, this.height);
+    this.sprite.drawFrame(this.ctx, this.piece_colour === this.light_colour ? 2 : 8, this.x, this.y, this.width, this.height);
 }
 
 var Queen = Object.create(Piece);
 
 Queen.render = function() {
-    this.sprite.drawFrame(this.ctx, 4, this.x, this.y, this.width, this.height);
+    this.sprite.drawFrame(this.ctx, this.piece_colour === this.light_colour ? 4 : 10, this.x, this.y, this.width, this.height);
 }
 
 var King = Object.create(Piece);
 
 King.render = function() {
-    this.sprite.drawFrame(this.ctx, 5, this.x, this.y, this.width, this.height);
+    this.sprite.drawFrame(this.ctx, this.piece_colour === this.light_colour ? 5 : 11, this.x, this.y, this.width, this.height);
 }
 
 var Animation = {
@@ -545,9 +708,9 @@ ConditionalAnimation.selected_pulse = function(colour) {
     }
     
     if (this.dirrection > 0) {
-        this.alpha = 0.1 + (this.progress / this.length) * 0.9;
+        this.alpha = 0.1 + (this.progress / this.length) * 0.3;
     } else {
-        this.alpha = 1 - (this.progress / this.length) * 0.9;
+        this.alpha = 0.4 - (this.progress / this.length) * 0.3;
     }
 
     this.ctx.save();
@@ -604,8 +767,6 @@ Coord.render = function() {
     }
     this.ctx.restore();
 }
-
-
 
 var main = Object.create(Game);
 main.run();
