@@ -26,9 +26,7 @@ var Game = {
         Game._playing_whites = val
     },
 
-    assetImages: ["./sprites/master-sprite.png", 
-                  "./sprites/explosion.png", 
-                  "./sprites/brightfire.png"],
+    assetImages: ["./sprites/master-sprite.png"],
     loadedImages: {},
     Sprites: {},
 
@@ -60,9 +58,10 @@ var Game = {
         /* This function should run only after all assets were loaded. Called from onReady. */
         let canvas = document.getElementById("canvas");
         this.ctx = canvas.getContext("2d");
-        this.board = Object.create(Board);
+        this.scene = Object.create(Scene);
+        this.scene.initScene(Object.create(Board));
         this.initSprites();
-        this.board.initBoard('rgba(0, 0, 0, .8)', 'rgb(255, 255, 255)');
+        this.scene.board.initBoard('rgba(0, 0, 0, .8)', 'rgb(255, 255, 255)');
         this.ctx.canvas.addEventListener("click", this.MouseClickHandler.bind(this));
         this.mainloop();
     },
@@ -74,19 +73,12 @@ var Game = {
                             3,                                                // number of rows in the sprite
                             64,                                               // each pile width
                             83);                                              // each pile height
-        
-        this.Sprites["Explosion"] = Object.create(Sprite)
-                .initSprite(this.loadedImages["./sprites/explosion.png"], 
-                            6, 
-                            6, 
-                            100, 
-                            96);
     },
 
     // using function declaration for self-reference
     mainloop: function mainloop() {
         window.requestAnimationFrame(mainloop.bind(this));
-        this.board.renderBoard(this.ctx);
+        this.scene.board.renderBoard(this.ctx);
     },
 
     clearCanvas: function() {
@@ -96,35 +88,27 @@ var Game = {
     MouseClickHandler: function(e) {
         let ex = e.offsetX;
         let ey = e.offsetY;
-        let b = this.board;
+        let b = this.scene.board;
         let es = this.edge_size;
         
 
         if (ex > b.x && ex < (b.x + es * 8) && ey > b.y && ey < (b.y + es * 8)) {
-            let row = this.playing_whites ? 7 - Math.floor((ey - b.y) / es) : Math.floor((ey - b.y) / es);
-            let col = this.playing_whites ? Math.floor((ex - b.x) / es) : 7 - Math.floor((ex - b.x) / es);
-            
-            let cell = b.cells[col][row];
-            console.log(b.selected_cell);
-            if (cell.piece || b.selected_cell) {
-                if (!b.selected_cell) {
-                    b.select_cell(cell);
-                    return;
-                } else {
-                    // we have a selected cell
-                    // if it's not the same cell, move the piece
-                    // if move is validated, do move
-                    if (b.selected_cell !== cell) {
-                        b.selected_cell.moveTo(cell, b);
-                    }
-                }
-            }
+            // clicked the board - pass the event to it
+            b.MouseClickHandler(e);
+        } else {
+            // clicked something else - TODO
+            console.log("Cliecked outside the board");
         }
-        b.unselect();
     },
 
     run: function() {
         this.onReady(this.initGame);
+    }
+}
+
+var Scene = {
+    initScene: function(board) {
+        this.board = board;
     }
 }
 
@@ -191,9 +175,11 @@ Board.initBoard = function(dark_colour, light_colour) {
         var current_color = r_idx % 2 === 0 ? this.light_colour : this.dark_colour;
         row.map(function(_, c_idx) {
             let cell = Object.create(Cell);
-            let address = this.playing_whites ? 
-                          `${String.fromCharCode(c_idx+65)}${8-r_idx}` :
-                          `${String.fromCharCode(72-c_idx)}${r_idx+1}`;
+            // let address = this.playing_whites ? 
+            //               `${String.fromCharCode(c_idx+65)}${8-r_idx}` :
+            //               `${String.fromCharCode(72-c_idx)}${r_idx+1}`;
+
+            let address = this.playing_whites ? [c_idx, 7-r_idx] : [7-c_idx, r_idx];
             
             cell.initCell(x + this.edge_size * c_idx, y, current_color, null, address);
             
@@ -253,28 +239,9 @@ Board.renderBoard = function() {
                 this.edge_size, 
                 this.edge_size
             );
-
-            // if (cell.piece) {
-            //     cell.piece.render();
-            // }
             
         }, this);
     }, this);
-
-    // if (this.selected_cell) {
-    //     this.ctx.save();
-    //     this.ctx.fillStyle = "red";
-    //     this.ctx.fillRect(
-    //         this.selected_cell.x,
-    //         this.selected_cell.y,
-    //         this.edge_size,
-    //         this.edge_size
-    //     )
-    //     if (this.selected_cell.piece) {
-    //         this.selected_cell.piece.render();
-    //     }
-    //     this.ctx.restore();
-    // }
 
     this.playAnimations();
     this.renderPieces();
@@ -363,6 +330,20 @@ Board.select_cell = function(cell) {
                                function(){return this.selected_cell}.bind(this)));
 }
 
+Board.MouseClickHandler = function(e) {
+    // identify the cell that was clicked
+    let ex = e.offsetX;
+    let ey = e.offsetY;
+    let b = this;
+    let es = this.edge_size;
+
+    let row = this.playing_whites ? 7 - Math.floor((ey - b.y) / es) : Math.floor((ey - b.y) / es);
+    let col = this.playing_whites ? Math.floor((ex - b.x) / es) : 7 - Math.floor((ex - b.x) / es);
+    
+    let cell = b.cells[col][row];
+    cell.MouseClickHandler(e, this);
+}
+
 /* Cell represents each individual cell on the board
 specifying it's position, colour, address & the figure object if any.
 */
@@ -376,18 +357,32 @@ Cell.initCell = function(x, y, colour, piece, address) {
     this.address = address;
 }
 
-Cell.getColRow = function() {
-    let col = this.address[0].charCodeAt() - 65;
-    let row = this.address[1].charCodeAt() - 49;
-    return [col, row];
+Cell.moveTo = function(another, board) {
+    let c1 = this.address[0];
+    let r1 = this.address[1];
+    let c2 = another.address[0];
+    let r2 = another.address[1];
+
+    let temp = board.cells[c1][r1].piece;
+    board.cells[c1][r1].piece = null;
+    temp.update(board.cells[c2][r2]);
+    board.unselect();
 }
 
-Cell.moveTo = function(another, board) {
-    let c1r1 = this.getColRow();
-    let c2r2 = another.getColRow();
-    let temp = board.cells[c1r1[0]][c1r1[1]].piece;
-    board.cells[c1r1[0]][c1r1[1]].piece = null;
-    temp.update(board.cells[c2r2[0]][c2r2[1]]);
+Cell.MouseClickHandler = function(e, board) {
+    if (this.piece || board.selected_cell) {
+        if (!board.selected_cell) {
+            board.select_cell(this);
+            return;
+        } else {
+            // we have a selected cell
+            // if it's not the same cell, move the piece
+            // if move is validated, do move
+            if (board.selected_cell !== this) {
+                board.selected_cell.moveTo(this, board);
+            }
+        }
+    }
     board.unselect();
 }
 
@@ -609,6 +604,8 @@ Coord.render = function() {
     }
     this.ctx.restore();
 }
+
+
 
 var main = Object.create(Game);
 main.run();
