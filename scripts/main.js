@@ -466,14 +466,13 @@ Piece.add_valid_moves = function() {
     let moves = this.move_dirrections.slice();
     let hits = this.hit_dirrections.slice();
     let test = {};
-    for (let col = 1; col <= this.max_move_distance; col++) {
-        let row = col;
+    for (let mul = 1; mul <= this.max_move_distance; mul++) {
         moves.forEach(function(dirrection, idx) {
             // debugger;
-            let dir_col = this.parent.address[0] + col * dirrection[0];
-            let dir_row = this.parent.address[1] + row * dirrection[1];
+            let dir_col = this.parent.address[0] + mul * dirrection[0];
+            let dir_row = this.parent.address[1] + mul * dirrection[1];
 
-            test[`${col}${row}`] = test[`${col}${row}`] + 1 || 1;
+            test[`${mul}${mul}`] = test[`${mul}${mul}`] + 1 || 1;
 
             if (this.isValidMove(dir_col, dir_row)) {
                 this.valid_moves[`${dir_col}${dir_row}`] = this.board.cells[dir_col][dir_row];
@@ -486,8 +485,8 @@ Piece.add_valid_moves = function() {
         moves = moves.filter(move => move);
 
         hits.forEach(function(dirrection, idx) {
-            let dir_col = this.parent.address[0] + col * dirrection[0];
-            let dir_row = this.parent.address[1] + row * dirrection[1];
+            let dir_col = this.parent.address[0] + mul * dirrection[0];
+            let dir_row = this.parent.address[1] + mul * dirrection[1];
             
             if (this.isValidHit(dir_col, dir_row)) {
                 this.valid_moves[`${dir_col}${dir_row}`] = this.board.cells[dir_col][dir_row];
