@@ -204,7 +204,7 @@ Board.initBoard = function() {
                   Array.apply(null, {length: 8}),
                   Array.apply(null, {length: 8}),
                   Array.apply(null, {length: 8}),
-                  Array.apply(null, {length: 8}),]
+                  Array.apply(null, {length: 8})]
 
     this.cells.map(function(row, r_idx) {
         // if row is even (incl. 0) start with dark colour
