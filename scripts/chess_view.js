@@ -226,7 +226,8 @@ Object.defineProperties(BoardView, {
             this.controller.get_cells().forEach(function(col, c_idx) {
                 col.forEach(function(cell, r_idx) {
                     let cell_model = this.controller.get_cell(c_idx, r_idx);
-                    this.cells[c_idx][r_idx] = Object.create(CellView).init_cell(this.x + c_idx * this.edge_size,
+                    this.cells[c_idx][r_idx] = Object.create(CellView).init_cell(c_idx, r_idx,
+                                                                                 this.x + c_idx * this.edge_size,
                                                                                  this.y + this.edge_size * 7 - r_idx * this.edge_size,
                                                                                  cell_model.side,
                                                                                  this.controller.get_piece(c_idx, r_idx));
@@ -279,7 +280,9 @@ Object.defineProperties(BoardView, {
             }, this);
 
             if (this.selected_piece) {
-                this.selected_piece.cell.highlight();
+                let c = this.selected_piece.cell;
+                c.highlight();
+                this.controller.get_valid_moves(c.column, c.row).forEach(cell => cell.highlight(), this);
             }
         }
     },
@@ -350,7 +353,9 @@ var CellView = Object.create(GameView);
 
 Object.defineProperties(CellView, {
     init_cell: {
-        value: function(x, y, color, piece) {
+        value: function(column, row, x, y, color, piece) {
+            this.column = column;
+            this.row = row;
             this.position = Object.create(Position).init_position(x, y);
             this.color = color;
             this.piece = this.set_piece(piece);
@@ -455,9 +460,9 @@ Object.defineProperties(CellView, {
                 // we clicked an empty cell and we have a selected piece
                 // check if the selected piece can be moved here
 
-                // if (this.board.selected_piece.valid_moves[`${this.address[0]}${this.address[1]}`]) {
-                //     this.board.selected_piece.moveTo(this);
-                // }
+                if (this.controller.is_valid_move(this.board.selected_piece, this)) {
+                    this.board.selected_piece.move_to(this);
+                }
                 this.board.selected_piece = null;
             }
         }
@@ -547,16 +552,30 @@ Object.defineProperties(PieceView, {
         }
     },
 
+    move_to: {
+        value: function(cell) {
+            if (this.controller.move_to(this, cell)) {
+                // move the View Objects
+                this.cell.piece = null;
+                this.cell = cell;
+                this.cell.piece = this;
+                this.update_position();
+            }
+        }
+    },
+
     MouseClickHandler: {
         value: function(e) {
             // a cell was clicked that had contains a piece
             if (!this.board.selected_piece) {
                 // there is no cell selected, yet
                 // select current cell
-                this.board.selected_piece = this;
+                if (this.side === this.controller.current_turn()) {
+                    this.board.selected_piece = this;
+                }
             } else {
                 // we have a selected cell
-                // check if the piece can have a different color
+                this.board.selected_piece.move_to(this.cell);
                 this.board.selected_piece = null;
             }
         }

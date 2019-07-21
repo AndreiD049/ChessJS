@@ -487,10 +487,12 @@ Object.defineProperties(Pawn, {
                         if (chain.next_link) chain.next_link.remove_cells();
                         chain.next_link = null;
                     });
+                    return true;
                 }
             } else {
-                Piece.move_to.call(this, other_cell);
+                return Piece.move_to.call(this, other_cell);
             }
+            return false
         }
     },
 
