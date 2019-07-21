@@ -13,11 +13,11 @@ Object.defineProperties(Game, {
 
     board: {
         get: function(){
-            return this._board;
+            return Game._board;
         },
 
         set: function(val) {
-            this._board = val;
+            Game._board = val;
         }
     },
 
@@ -46,6 +46,7 @@ Object.defineProperties(Game, {
         value: function() {
             this.board = Object.create(Board);
             this.board.init_board();
+            return this;
         }
     },
 
@@ -101,23 +102,6 @@ Object.defineProperties(Board, {
             }, this);
 
             this.initial_position();
-            this.cells[1][0].piece.move_to(this.cells[2][2]);
-            this.cells[0][6].piece.move_to(this.cells[0][4]);
-            this.cells[2][2].piece.move_to(this.cells[4][3]);
-            this.cells[0][7].piece.move_to(this.cells[0][6]);
-            // Object.create(Queen).init_queen(this.cells[3][0], this.light_side);
-            // Object.create(Pawn).init_pawn(this.cells[3][1], this.light_side);
-            // Object.create(Queen).init_queen(this.cells[3][6], this.dark_side);
-            this.log_board();
-
-            for (let i = 0; i <= 100; i++) {
-                let move = window.prompt("get move: ").split("");
-                if (this.cells[move[0]][move[1]].piece && this.validate_address([move[2]],[move[3]])) {
-                    this.cells[move[0]][move[1]].piece.move_to(this.cells[move[2]][move[3]]);
-                    console.clear();
-                    this.log_board();
-                }
-            }
         }
     },
 
@@ -257,7 +241,7 @@ Object.defineProperties(Piece, {
         get: function() {
             let result = Piece._id;
             Piece._id++;
-            return "Piece" + result;
+            return String(this) + result;
         }
     },
 
@@ -424,6 +408,12 @@ Object.defineProperties(Piece, {
         value: function() {
             return this.side === this.board.current_turn;
         }
+    },
+
+    toString: {
+        value: function() {
+            return "piece";
+        }
     }
 
 });
@@ -503,6 +493,12 @@ Object.defineProperties(Pawn, {
             }
         }
     },
+
+    toString: {
+        value: function() {
+            return "pawn";
+        }
+    }
 });
 
 var Rook = Object.create(Piece);
@@ -519,6 +515,12 @@ Object.defineProperties(Rook, {
             // this.move_chains.forEach(chain=>console.log(chain.toString()));
             return this;
         }
+    },
+
+    toString: {
+        value: function() {
+            return "rook";
+        }
     }
 });
 
@@ -534,6 +536,12 @@ Object.defineProperties(Knight, {
             this.init_move_chains();
             this.validate_chains();
             return this;
+        }
+    },
+
+    toString: {
+        value: function() {
+            return "knight";
         }
     }
 });
@@ -552,6 +560,12 @@ Object.defineProperties(Bishop, {
                 this.validate_chains();
                 return this;
         }
+    },
+
+    toString: {
+        value: function() {
+            return "bishop";
+        }
     }
 });
 
@@ -568,6 +582,12 @@ Object.defineProperties(Queen, {
                 this.init_move_chains();
                 this.validate_chains();
                 return this;
+        }
+    },
+
+    toString: {
+        value: function() {
+            return "queen";
         }
     }
 });
@@ -651,6 +671,12 @@ Object.defineProperties(King, {
 
             // if we got here, it's a mate
             return true;
+        }
+    },
+
+    toString: {
+        value: function() {
+            return "king";
         }
     }
 });
@@ -776,5 +802,3 @@ Object.defineProperties(MoveLink, {
         }
     }
 });
-
-Game.init_game();

@@ -8,8 +8,11 @@
     <title>ChessJS</title>
 </head>
 <body>
-    <canvas width=600 height=600 id="canvas">If you see this, your browser doesn't supporn canvas. Please try another browser.</canvas>
+    <canvas width=600 height=600 id="canvas-bg" z-index=0 style="position:absolute">If you see this, your browser doesn't supporn canvas. Please try another browser.</canvas>
+    <canvas width=600 height=600 id="canvas" z-index=1 style="position: absolute">If you see this, your browser doesn't supporn canvas. Please try another browser.</canvas>
     <!-- <script src="scripts/main.js"></script> -->
     <script src="scripts/chess_model.js"></script>
+    <script src="scripts/chess_view.js"></script>
+    <script src="scripts/chess_controller.js"></script>
 </body>
 </html>
