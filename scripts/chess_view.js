@@ -219,7 +219,7 @@ Object.defineProperties(BoardView, {
 
             this.selected_piece = null;
             this.coords = []
-            this.coord_font = this.edge_size + "px Arial";
+            
             this.init_coords(this.edge_size + "px Bit Potion", "bottom");
             
             // init the cells
