@@ -8,6 +8,7 @@ Object.defineProperties(ChessController, {
             let colors = {};
             colors[this.model.light_side] = "rgba(255, 255, 255, .5)";
             colors[this.model.dark_side] = "rgba(0, 0, 0, .7)";
+            colors["highlight"] = "rgb(3, 252, 236)";
             this.view = GameView.init_game(this, colors);
             return this;
         }

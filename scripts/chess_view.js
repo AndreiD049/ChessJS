@@ -19,7 +19,7 @@ Object.defineProperties(GameView, {
     },
 
     playing_whites: {
-        value: true,
+        value: false,
         writable: true
     },
 
@@ -111,6 +111,8 @@ Object.defineProperties(GameView, {
             this.colors = colors;
             this.board = Object.create(BoardView);
 
+            this.ctx.canvas.addEventListener("click", this.MouseClickHandler.bind(this));
+
             this.on_ready(this.init_sprites.bind(this), this.board.init_board.bind(this.board), this.mainloop.bind(this));
         }
     },
@@ -165,6 +167,24 @@ Object.defineProperties(GameView, {
                         64,                                                     // each pile width
                         88);  
         }
+    },
+
+    MouseClickHandler: {
+        value: function(e) {
+            let ex = e.offsetX;
+            let ey = e.offsetY;
+            let b = this.board;
+            let es = this.edge_size;
+            
+    
+            if (ex > b.x && ex < (b.x + es * 8) && ey > b.y && ey < (b.y + es * 8)) {
+                // clicked the board - pass the event to it
+                b.MouseClickHandler(e);
+            } else {
+                // clicked something else - TODO
+                console.log("Clicked outside the board");
+            }
+        }
     }
 });
 
@@ -197,10 +217,12 @@ Object.defineProperties(BoardView, {
                           Array.apply(null, {length: 8}),
                           Array.apply(null, {length: 8})];
 
+            this.selected_piece = null;
             this.coords = []
             this.coord_font = this.edge_size + "px Arial";
             this.init_coords(this.edge_size + "px Bit Potion", "bottom");
             
+            // init the cells
             this.controller.get_cells().forEach(function(col, c_idx) {
                 col.forEach(function(cell, r_idx) {
                     let cell_model = this.controller.get_cell(c_idx, r_idx);
@@ -255,6 +277,10 @@ Object.defineProperties(BoardView, {
                     cell.render();
                 }, this);
             }, this);
+
+            if (this.selected_piece) {
+                this.selected_piece.cell.highlight();
+            }
         }
     },
 
@@ -299,6 +325,22 @@ Object.defineProperties(BoardView, {
                 coord.render();
             })
             this.bg_ctx.restore();
+        }
+    },
+
+    MouseClickHandler: {
+        value: function(e) {
+            // identify the cell that was clicked
+            let ex = e.offsetX;
+            let ey = e.offsetY;
+            let b = this;
+            let es = this.edge_size;
+
+            let row = this.playing_whites ? 7 - Math.floor((ey - b.y) / es) : Math.floor((ey - b.y) / es);
+            let col = this.playing_whites ? Math.floor((ex - b.x) / es) : 7 - Math.floor((ex - b.x) / es);
+            
+            let cell = b.cells[col][row];
+            cell.MouseClickHandler(e);
         }
     }
 });
@@ -346,6 +388,9 @@ Object.defineProperties(CellView, {
 
     render: {
         value: function() {
+            // check if we have a selected piece
+            // if yes, highlight it
+
             // render the pieces
             if (this.piece) {
                 this.piece.render();
@@ -382,6 +427,38 @@ Object.defineProperties(CellView, {
 
                 default:
                     break;
+            }
+        }
+    },
+
+    highlight: {
+        value: function() {
+            this.ctx.save();
+            this.ctx.fillStyle = this.colors["highlight"];
+            this.ctx.globalCompositeOperation = "destination-over";
+
+            this.ctx.fillRect(
+                this.x, 
+                this.y, 
+                this.edge_size, 
+                this.edge_size
+            );
+            this.ctx.restore();
+        }
+    },
+
+    MouseClickHandler: {
+        value: function(e) {
+            if (this.piece) {
+                this.piece.MouseClickHandler(e);
+            } else if (this.board.selected_piece) {
+                // we clicked an empty cell and we have a selected piece
+                // check if the selected piece can be moved here
+
+                // if (this.board.selected_piece.valid_moves[`${this.address[0]}${this.address[1]}`]) {
+                //     this.board.selected_piece.moveTo(this);
+                // }
+                this.board.selected_piece = null;
             }
         }
     }
@@ -467,6 +544,21 @@ Object.defineProperties(PieceView, {
     update_position: {
         value: function() {
             this.position.init_position(this.cell.x, this.cell.y - (this.edge_size * 0.15));
+        }
+    },
+
+    MouseClickHandler: {
+        value: function(e) {
+            // a cell was clicked that had contains a piece
+            if (!this.board.selected_piece) {
+                // there is no cell selected, yet
+                // select current cell
+                this.board.selected_piece = this;
+            } else {
+                // we have a selected cell
+                // check if the piece can have a different color
+                this.board.selected_piece = null;
+            }
         }
     }
 });
