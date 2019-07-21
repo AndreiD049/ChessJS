@@ -19,7 +19,7 @@ Object.defineProperties(GameView, {
     },
 
     playing_whites: {
-        value: false,
+        value: true,
         writable: true
     },
 
@@ -460,9 +460,7 @@ Object.defineProperties(CellView, {
                 // we clicked an empty cell and we have a selected piece
                 // check if the selected piece can be moved here
 
-                if (this.controller.is_valid_move(this.board.selected_piece, this)) {
-                    this.board.selected_piece.move_to(this);
-                }
+                this.board.selected_piece.move_to(this);
                 this.board.selected_piece = null;
             }
         }

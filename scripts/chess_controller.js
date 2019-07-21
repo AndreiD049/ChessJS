@@ -47,13 +47,6 @@ Object.defineProperties(ChessController, {
         }
     },
 
-    is_valid_move: {
-        value: function(piece, cell) {
-            let piece_cell = piece.cell;
-            return (this.get_piece(piece_cell.column, piece_cell.row).is_safe_move_to(this.get_cell(cell.column, cell.row)))
-        }
-    },
-
     move_to: {
         value: function(piece, cell) {
             let p_cell = piece.cell;

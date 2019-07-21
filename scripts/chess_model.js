@@ -299,6 +299,7 @@ Object.defineProperties(Piece, {
                     // after we need to check if the opposite king has any possibilities
                     // possibilities to avoid mate
                     if (opposite_king.is_mate()) {
+                        console.log("Lost");
                         this.won = this.side;
                     }
                 }
